@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import sys
 import re
 
@@ -55,16 +56,19 @@ def rename_pages(work_dir_path: str) -> None:
     for rule in rules:
         match = re.match(r'^RewriteRule\s+(\S+)(?!/)\s+(\S+)', rule)
         if match:
-            new_name, old_name = match.groups()
-            old_path = os.path.join(wor_dir_path, old_name)
-            if (new_name[-2:] == '/$')|('.html' not in old_name):
+            new_folder, old_name = match.groups()
+            old_path = Path(os.path.join(wor_dir_path, old_name))
+            if (new_folder[-2:] == '/$')|('.html' not in old_name):
                 continue
             else:
-                new_name = new_name[1:-1]
-            new_path = os.path.join(wor_dir_path, new_name)
+                new_folder = new_folder[1:-1]
+            new_path = Path(os.path.join(wor_dir_path, new_folder))
+            if not os.path.exists(new_path):
+                os.makedirs(new_path)
             if os.path.exists(old_path):
-                os.rename(old_path, new_path)
-                logging.info(f"Переименовываем {old_name} → {new_name}")
+                os.rename(old_path, Path(os.path.join(wor_dir_path, 'index.html')))
+                shutil.move(Path(os.path.join(wor_dir_path, 'index.html')), new_path)
+                logging.info(f"Переименовываем и перемещаем {old_name} → {new_folder}")
             else:
                 logging.error(f"Файл {old_name} не найден, переименование невозможно")
 
