@@ -6,6 +6,8 @@ import re
 
 from pathlib import Path
 
+from bs4 import BeautifulSoup
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
@@ -16,6 +18,25 @@ def read_txt(filename):
 def save_txt(filename, content):
     with open(filename, "w", encoding="utf-8") as file:
         file.write(content)
+
+
+def modify_links_in_html(file_path: str) -> None:
+    """
+    Исправляет ссылки к скриптам и прочему в файлах, перемещенных на уровень ниже, делая их ведущими от корня.
+    :param file_path: Путь к html файлу для исправления
+    :return:
+    """
+    with open(file_path, 'r', encoding='utf-8') as file:
+        soup = BeautifulSoup(file, 'html.parser')
+    for tag in soup.find_all(['a', 'img', 'script', 'link'], href=True):
+        if not tag['href'].startswith('/'):
+            tag['href'] = '/' + tag['href']
+    for tag in soup.find_all(['img', 'script'], src=True):
+        if not tag['src'].startswith('/'):
+            tag['src'] = '/' + tag['src']
+    with open(file_path, 'w', encoding='utf-8') as file:
+        file.write(str(soup))
+
 
 def fix_js_css_images(all_projects_pages: list, folders_to_fix: list = ('/js', '/css', '/images')) -> None:
     """
@@ -62,15 +83,17 @@ def rename_pages(work_dir_path: str) -> None:
                 continue
             else:
                 new_folder = new_folder[1:-1]
-            new_path = Path(os.path.join(wor_dir_path, new_folder))
-            if not os.path.exists(new_path):
-                os.makedirs(new_path)
+            new_path = Path(os.path.join(wor_dir_path, new_folder, old_name))
+            result_path = Path(os.path.join(wor_dir_path, new_folder, 'index.html'))
+            if not os.path.exists(os.path.join(wor_dir_path, new_folder)):
+                os.makedirs(os.path.join(wor_dir_path, new_folder))
             if os.path.exists(old_path):
-                os.rename(old_path, Path(os.path.join(wor_dir_path, 'index.html')))
-                shutil.move(Path(os.path.join(wor_dir_path, 'index.html')), new_path)
-                logging.info(f"Переименовываем и перемещаем {old_name} → {new_folder}")
+                shutil.copy(Path(os.path.join(wor_dir_path, old_name)), new_path)
+                os.rename(new_path, result_path)
+                modify_links_in_html(result_path)
+                logging.info(f"Переименовываем и копируем {old_name} → {new_folder}/index.html")
             else:
-                logging.error(f"Файл {old_name} не найден, переименование невозможно")
+               logging.error(f"Файл {old_name} не найден, переименование невозможно")
 
 
 def fix_tilda(work_dir_path: str = None) -> None:
